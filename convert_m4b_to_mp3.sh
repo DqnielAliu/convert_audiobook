@@ -57,17 +57,12 @@ declare -r FFMPEG_LOGLEVEL="-loglevel error"
 declare -a INPUT_FILES=()
 declare -i OUTPUT_MP3=0
 declare -i CHAPTERED=1
-# declare -- _BITRATE=
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --dryrun)
             DRYRUN=1
             shift
-            ;;
-        -h|--help)
-            echo -e "$HELP"
-            exit 1
             ;;
         -c|--chaptered)
             CHAPTERED=1
@@ -92,28 +87,12 @@ while [ "$#" -gt 0 ]; do
             _BITRATE="$2"
             shift 2
             ;;
+        -h|--help)
+            echo -e "$HELP"
+            exit 1
+            ;;
         *)
-            if [[ -f "$1" ]]; then
-                if [[ "$1" == *.m4b ]]; then
-                    OUTPUT_MP3=1
-                    INPUT_FILES+=( "$1" )
-                fi
-            elif [[ -d "$1" ]]; then
-                # untested with directories ... 
-                # or add recusion here later
-                # (mwhahahahaa)
-                # echo $arg;
-                # while IFS= read -r -d '' file; do
-                #     INPUT_FILES+=( "$file" )
-                # done < <(find "$arg" -type f -name "*.m4b" -print0)
-                for item in "$1"/*.m4b; do
-                    INPUT_FILES+=( "$item" )
-                done
-                echo "- Ignoring directory '$1'"
-            else
-                echo -e "Unknown argument '$1'.\nTry './${0##*/} --help' for usage.\n"
-                exit 1
-            fi
+            INPUTS="$1"
             shift
             ;;
     esac
@@ -126,24 +105,41 @@ if [[ "$OUTPUT_MP3" == 0 ]]; then
     exit 1
 fi
 
-# no source file?
-if [[ ${#INPUT_FILES[@]} == 0 ]]; then
-    echo -e "No .m4b input files specified.\nSee './${0##*/} --help' for usage.\n"
-    exit 1
-fi
-
-# For testing purpose
-for file in "${INPUT_FILES[@]}"
-do
-    echo "$file"
+# Process each file or expand dirs
+for src in "$INPUTS"; do
+  if [ -d "$src" ]; then
+    for f in "$src"/*.m4b; do 
+        [ -f "$f" ] && INPUT_FILES+=("$f")
+    done
+    continue
+  elif [ -f "$src" ]; then
+    INPUT_FILES+=("$src")
+  else
+    printf 'Warning: ignoring %s\n' "$src" >&2
+  fi
 done
+set -x
+[ ${#INPUT_FILES[@]} -ge 1 ] || { printf 'No .m4b files found\n \
+                                See './${0##*/} --help' for usage.\n' \
+                                >&2; exit 1; }
+
+
+sanitize() {
+    echo "$1" | sed 's/[<>:"\/\\|?*]/-/g';
+}
+get_metadata() {
+    ffprobe -v quiet -show_format "$1" \
+    | sed -n 's/^TAG:'"$2"'=\(.*\)$/\1/p';
+}
 
 #Vroom Vrooom
 for INPUT_FILE in "${INPUT_FILES[@]}"; do
     SPLIT=$SECONDS
     # temporary folder.
     WORKPATH=$(mktemp -d -t ${0##*/}-XXXXXXXXXX)
+    trap 'rm -rf "$WORKPATH"' EXIT INT HUP TERM
     
+    # Compute bitrate if not set
     if [[ -n "$_BITRATE" ]]; then
         BITRATE_KBPS=${_BITRATE}
     else
@@ -152,19 +148,22 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
     fi
 
     # Book info
-    BOOKTITLE=$(ffprobe -v quiet -show_format "$INPUT_FILE" | grep "TAG:title" | cut -d"=" -f2 | tr -d '"')
-    AUTHOR=$(ffprobe -v quiet -show_format "$INPUT_FILE" | grep "TAG:artist" | cut -d"=" -f2 | tr -d '"')
-    YEAR=$(ffprobe -v quiet -show_format "$INPUT_FILE" | grep "TAG:date" | cut -d"=" -f2 | tr -d '"')
-    GENRE=$(ffprobe -v quiet -show_format "$INPUT_FILE" | grep "TAG:genre" | cut -d"=" -f2 | tr -d '"')
-    COMMENT=$(ffprobe -v quiet -show_format "$INPUT_FILE" | grep "TAG:comment" | cut -d"=" -f2 | tr -d '"')
+    BOOKTITLE=$(get_metadata "$INPUT_FILE" title)
+    AUTHOR=$(get_metadata "$INPUT_FILE" artist)
+    YEAR=$(get_metadata "$INPUT_FILE" date)
+    GENRE=$(get_metadata "$INPUT_FILE" genre)
+    COMMENT=$(get_metadata "$INPUT_FILE" comment)
+    
     ffmpeg $FFMPEG_LOGLEVEL -i "$INPUT_FILE" -f ffmetadata "$WORKPATH/metadata.txt"
     ARTIST_SORT=$(sed 's/.*=\(.*\)/\1/' <<<$(cat "$WORKPATH/metadata.txt" | grep -m 1 ^sort_artist | tr -d '"'))
     ALBUM_SORT=$(sed 's/.*=\(.*\)/\1/' <<<$(cat "$WORKPATH/metadata.txt" | grep -m 1 ^sort_album | tr -d '"'))
 
-    # If a title begins with A, An, or The, we want to rename it so it sorts well
-    TOKENWORDS=("A" "An" "The")
     FSBOOKTITLE="$BOOKTITLE"
     FSAUTHOR="$AUTHOR"
+
+    # If a title begins with A, An, or The, we want to rename it so it sorts well
+    TOKENWORDS=("A" "An" "The")
+
     for i in "${TOKENWORDS[@]}"; do
         if [[ "$FSBOOKTITLE" == "$i "* ]]; then
             FSBOOKTITLE=$(echo $FSBOOKTITLE | perl -pe "s/^$i //")
@@ -177,10 +176,11 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
             break
         fi
     done
+
     # Replace special characters in Book Title and Author Name with a - to make
     # them file name safe.
-    FSBOOKTITLE=$(echo $FSBOOKTITLE | perl -pe 's/[<>:"\/\\\|\?\*]/-/g')
-    FSAUTHOR=$(echo $FSAUTHOR | perl -pe 's/[<>:"\/\\\|\?\*]/-/g')
+    FSBOOKTITLE=$(sanitize $FSBOOKTITLE)
+    FSAUTHOR=$(sanitize $FSAUTHOR)
 
     # chapters
     ffprobe $FFMPEG_LOGLEVEL -i "$INPUT_FILE" -print_format json -show_chapters -loglevel error -sexagesimal > "$WORKPATH/chapters.json"
@@ -205,12 +205,12 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
     mkdir "$WORKPATH/m4b"
     echo "- Creating \"$FSBOOKTITLE.m4b\""
     if [[ "$DRYRUN" == 0 ]]; then
-        DRMFREE="$WORKPATH/m4b/$FSBOOKTITLE.m4b"
-        ffmpeg -loglevel error -stats -i "$INPUT_FILE" -map 0:a -c copy "$DRMFREE"
+        WORKINGCOPY="$WORKPATH/m4b/$FSBOOKTITLE.m4b"
+        ffmpeg -loglevel error -stats -i "$INPUT_FILE" -map 0:a -c copy "$WORKINGCOPY"
     fi
     # Dryrun referances initial file
     if [[ "$DRYRUN" == 1 ]]; then
-        DRMFREE=$INPUT_FILE
+        WORKINGCOPY=$INPUT_FILE
     fi
 
     # make work file
@@ -234,7 +234,7 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
             OUTPUT_ENCODE="_$TRACKNO.$OUTPUT_EXT"
             OUTPUT_FINAL="$(printf "%02d" $TRACKNO). $FSBOOKTITLE - ${TITLE[$i]}.$OUTPUT_EXT"
             COMMAND="set -x;echo \"$WORKPATH/$OUTPUT_EXT/$OUTPUT_ENCODE\" && \
-                ffmpeg $FFMPEG_LOGLEVEL -i \"${DRMFREE/"\$"/"\\\$"}\" -vn \
+                ffmpeg $FFMPEG_LOGLEVEL -i \"${WORKINGCOPY/"\$"/"\\\$"}\" -vn \
                 -ss ${START_TIME[$i]} -to ${END_TIME[$i]} \
                 -map_chapters -1 \
                 -id3v2_version 4 \
@@ -288,7 +288,7 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
         OUTPUT_ENCODE="_$TRACKNO.$OUTPUT_EXT"
         OUTPUT_FINAL="$FSBOOKTITLE - ${TITLE[$i]}.$OUTPUT_EXT"
         COMMAND="set -x; echo \"$WORKPATH/$OUTPUT_EXT/$OUTPUT_ENCODE\" && \
-            ffmpeg $FFMPEG_LOGLEVEL -i \"${DRMFREE/"\$"/"\\\$"}\" -vn \
+            ffmpeg $FFMPEG_LOGLEVEL -i \"${WORKINGCOPY/"\$"/"\\\$"}\" -vn \
             -map_chapters -1 \
             -id3v2_version 4 \
             -metadata album=\"$BOOKTITLE\" \
@@ -326,17 +326,23 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
 
     fi
 
-    # clean up
-    rm "$JOBENCODER"
-    rm "$JOBCOVER"
-    if [[ "$DRYRUN" == 0 ]]; then
-        if [[ -n "$OUTPUT_EXT" ]]; then
-            mkdir "$(dirname "$INPUT_FILE")/$OUTPUT_EXT/" -p
-            cp $COVERIMG "$(dirname "$INPUT_FILE")/$OUTPUT_EXT/" -f
-            cp $WORKPATH/$OUTPUT_EXT/* "$(dirname "$INPUT_FILE")/$OUTPUT_EXT/" -f
-        fi
+    # clean up    
+    if [[ "$DRYRUN" -eq 0 && -n "$OUTPUT_EXT" ]]; then
+        mkdir "$(dirname "$INPUT_FILE")/$OUTPUT_EXT/" -p
+        cp $COVERIMG "$(dirname "$INPUT_FILE")/$OUTPUT_EXT/" -f
+        cp $WORKPATH/$OUTPUT_EXT/* "$(dirname "$INPUT_FILE")/$OUTPUT_EXT/" -f
+    else
+        echo "[Dry Run] Would run:"
+        cat "$JOBENCODER" "$JOBCOVER"
     fi
-    rm -r "$WORKPATH"
+
+    cleanup() {
+        rm "$JOBENCODER"
+        rm "$JOBCOVER"
+        [ -d "$WORKPATH" ] && rm -r "$WORKPATH"
+    }
+    trap cleanup EXIT
+
     # loop process time
     SPLIT_RUN=$(($SECONDS-$SPLIT))
     echo -e "- Done. processed in $(($SPLIT_RUN / 3600))hrs $((($SPLIT_RUN / 60) % 60))min $(($SPLIT_RUN % 60))sec.\n"
