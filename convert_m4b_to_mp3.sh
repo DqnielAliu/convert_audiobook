@@ -9,7 +9,7 @@ Accepts unencrypted M4B files (for MP3 conversion).
 Requirements
 ============
 Dependencies: ffmpeg, jq, lame
-Install with: sudo apt install ffmpeg libavcodec-extra jq lame
+Install with: sudo apt install ffmpeg jq
 
 Usage
 =====
@@ -221,7 +221,7 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
     chmod +x "$JOBENCODER"
     
     # MP3 (one track per chapter, metadata and playlist)
-    if [ ${#ID[@]} -ge 1 ]; then
+    if [ ${#ID} -gt 0 ]; then
         echo "- Preparing $OUTPUT_EXT Encoding Jobs"
         mkdir "$WORKPATH/$OUTPUT_EXT"
         PLAYLIST="$WORKPATH/$OUTPUT_EXT/$FSBOOKTITLE ($FSAUTHOR $YEAR).m3u"
