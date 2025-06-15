@@ -42,8 +42,6 @@ to other formats for backup or personal use.
 
 Please do not use this script to redistribute audiobooks. Support authors, narrators, 
 and publishers by respecting copyright and licensing terms.
-
-Based on concepts from https://apprenticealf.wordpress.com/
 "
 
 
