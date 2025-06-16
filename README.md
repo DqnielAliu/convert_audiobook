@@ -5,8 +5,7 @@ This script converts unencrypted M4B audiobooks into chapterized MP3 files with 
 ## Features
 
 - Converts unencrypted `.m4b` files into:
-  - Per-chapter `.mp3` files
-  - `.m3u` playlists
+  - Per-chapter `.mp3` files with `.m3u` playlists
 - Retains cover images and metadata
 - Customizable bitrate
 - `--dryrun` mode for safe previews
@@ -36,7 +35,7 @@ Save the script to a file (e.g., `convert_audiobook.sh`) and make it executable 
 **Output Options (output format option, like `--format mp3` or `--format m4b`, defaults to mp3 when not provided):**
 
 *   `--format <value>`: Takes a parameter (e.g., `mp3`, `m4b`). Defaults to `mp3` when not provided.
-*   `--bitrate <value>`: Set the MP3 encoding bitrate (e.g., `128k`, `192k`). Defaults to `192k`
+*   `--bitrate <value>`: Set the MP3 encoding bitrate (e.g., `128k`, `192k`). Defaults to same as source file.
 *   `--dryrun`: Preview the operations, showing what would be done without actually creating files or encoding.
 *   `-h`, `--help`: Display the built-in help message and exit.
 

@@ -179,7 +179,7 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
 
     # Replace special characters in Book Title and Author Name with a - to make
     # them file name safe.
-    FSBOOKTITLE=$(echo $FSBOOKTITLE | perl -pe 's/[<>:"\/\\\|\?\*]/-/g')
+    FSBOOKTITLE=$(echo $FSBOOKTITLE | perl -pe 's/[<>:"\/\\\|\?\*]/-/g' | sed -E 's/ +/ /g; s/^ *| *$//g')
     FSAUTHOR=$(echo $FSAUTHOR | perl -pe 's/[<>:"\/\\\|\?\*]/-/g')
 
     # chapters
@@ -228,6 +228,7 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
         for i in ${!ID[@]}
         do
             let TRACKNO=$i+1
+            TITLE[$i]=$(echo "${TITLE[$i]}" | sed -E 's/ +/ /g; s/^ *| *$//g')
             echo -e " ${START_TIME[$i]} - ${END_TIME[$i]}\t${TITLE[$i]}"
 
             # Encoder job
