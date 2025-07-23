@@ -141,7 +141,7 @@ trap cleanup EXIT INT HUP TERM
 
 get_metadata() {
     ffprobe -v quiet -show_format "$1" \
-    | sed -n 's/^TAG:'"$2"'=\(.*\)$/\1/p';
+    | sed -n 's/^TAG:'"$2"'=\(.*\)$/\1/p' | sed 's/"/\\"/g; s/\\"=/="/';
 }
 
 # Main
