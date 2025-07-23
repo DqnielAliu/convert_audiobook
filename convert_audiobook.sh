@@ -141,7 +141,7 @@ trap cleanup EXIT INT HUP TERM
 
 get_metadata() {
     ffprobe -v quiet -show_format "$1" \
-    | sed -n 's/^TAG:'"$2"'=\(.*\)$/\1/p' | sed 's/"/\\"/g; s/\\"=/="/';
+    | sed -n 's/^TAG:'"$2"'=\(.*\)$/\1/pI' | sed 's/"/\\"/g; s/\\"=/="/';
 }
 
 # Main
@@ -166,6 +166,9 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
     YEAR=$(get_metadata "$INPUT_FILE" date)
     GENRE=$(get_metadata "$INPUT_FILE" genre)
     COMMENT=$(get_metadata "$INPUT_FILE" comment)
+    DESCRIPTION=$(get_metadata "$INPUT_FILE" "description")
+    NARRATOR=$(get_metadata "$INPUT_FILE" "narrator")
+    PUBLISHER=$(get_metadata "$INPUT_FILE" "publisher")
     
     ffmpeg $FFMPEG_LOGLEVEL -i "$INPUT_FILE" -f ffmetadata "$WORKPATH/metadata.txt"
     ARTIST_SORT=$(sed 's/.*=\(.*\)/\1/' <<<$(cat "$WORKPATH/metadata.txt" | grep -m 1 ^sort_artist | tr -d '"'))
@@ -260,6 +263,9 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
                 -metadata album_artist=\"$AUTHOR\" \
                 -metadata date=\"$YEAR\" \
                 -metadata Comment=\"$COMMENT\" \
+                -metadata Description=\"$DESCRIPTION\" \
+                -metadata Narrator=\"$NARRATOR\" \
+                -metadata Publisher=\"$PUBLISHER\" \
                 -metadata album-sort=\"$ALBUM_SORT\"
                 -metadata artist-sort=\"$ARTIST_SORT\"
                 -codec:a $OUTPUT_CODEC \
