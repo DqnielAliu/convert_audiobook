@@ -250,7 +250,8 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
                 ffmpeg $FFMPEG_LOGLEVEL -i \"${WORKINGCOPY/"\$"/"\\\$"}\" -vn \
                 -ss ${START_TIME[$i]} -to ${END_TIME[$i]} \
                 -map_chapters -1 \
-                -id3v2_version 4 \
+                -map_metadata -1 \
+                -id3v2_version 3 \
                 -metadata title=\"${TITLE[$i]}\" \
                 -metadata track=\"$TRACKNO/${#ID[@]}\" \
                 -metadata album=\"$ALBUM\" \
