@@ -46,7 +46,7 @@ and publishers by respecting copyright and licensing terms.
 
 
 declare -i DRYRUN=0
-declare -r FFMPEG_LOGLEVEL="-loglevel error"
+declare -i DEBUG=0
 declare -a INPUT_FILES=()
 
 while [ "$#" -gt 0 ]; do
@@ -63,6 +63,10 @@ while [ "$#" -gt 0 ]; do
             _BITRATE="$2"
             shift 2
             ;;
+        --debug)
+            DEBUG=1
+            shift
+            ;;
         -h|--help)
             echo -e "$HELP"
             exit 1
@@ -73,6 +77,14 @@ while [ "$#" -gt 0 ]; do
             ;;
     esac
 done
+
+if [ "$DEBUG" -eq 1 ]; then
+    echo "Debugging info starts here"
+    set -x
+    declare -r FFMPEG_LOGLEVEL="-loglevel debug"
+else
+    declare -r FFMPEG_LOGLEVEL="-loglevel error"
+fi
 
 # Set variables based on FORMAT
 FORMAT="${FORMAT:-mp3}"
