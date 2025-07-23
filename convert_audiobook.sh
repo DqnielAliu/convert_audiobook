@@ -165,10 +165,10 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
     # If a title begins with A, An, or The, we want to rename it so it sorts well
     TOKENWORDS=("A" "An" "The")
     for i in "${TOKENWORDS[@]}"; do
-        if [ "$FSBOOKTITLE" == "$i "* ]; then
+        if [[ "$FSBOOKTITLE" == "$i "* ]]; then
             FSBOOKTITLE=$(echo $FSBOOKTITLE | perl -pe "s/^$i //")
             # If book has a subtitle, we want the token word to go right before it
-            if [ "$FSBOOKTITLE" == *": "* ]; then
+            if [[ "$FSBOOKTITLE" == *": "* ]]; then
                 FSBOOKTITLE=$(echo $FSBOOKTITLE | perl -pe "s/: /, $i: /")
                 break  
             fi
