@@ -237,7 +237,7 @@ for INPUT_FILE in "${INPUT_FILES[@]}"; do
     if [ ${#ID} -gt 0 ]; then
         echo "- Preparing $OUTPUT_EXT Encoding Jobs"
         mkdir "$WORKPATH/$OUTPUT_EXT"
-        PLAYLIST="$WORKPATH/$OUTPUT_EXT/$FSBOOKTITLE ($FSAUTHOR $YEAR).m3u"
+        PLAYLIST="$WORKPATH/$OUTPUT_EXT/$FSBOOKTITLE ($FSAUTHOR${YEAR:+ $YEAR}).m3u"
         echo -e "#EXTM3U\n#EXTENC: UTF-8\n#EXTGENRE:$GENRE\n#EXTART:$AUTHOR\n#PLAYLIST:$BOOKTITLE ($AUTHOR $YEAR)" | tee "$PLAYLIST" 1> /dev/null
         
         for i in ${!ID[@]}
